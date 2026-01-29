@@ -1,0 +1,44 @@
+# Compiled binaries
+*.exe
+*.out
+*.o
+*.obj
+*.a
+*.so
+*.dll
+
+# Compiler logs and temporary files
+*.log
+compile_error.txt
+compile_output.txt
+error.txt
+gcc_err.txt
+gcc_err2.txt
+gcc_error.log
+gcc_out.txt
+gcc_out2.txt
+output.txt
+
+# IDE and editor files
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Test files
+test_*.c
+*_test.c
+simple_test.c

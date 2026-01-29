@@ -42,3 +42,14 @@ ENV/
 test_*.c
 *_test.c
 simple_test.c
+test_*.txt
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# Build directories
+build/
+bin/
+cmake-build-*/

@@ -301,7 +301,8 @@ int main(void) {
         fprintf(file, "로깅 기능이 추가된 파일 I/O\n");
         wrapped_fclose(file, filename);
     }
-    
+    printf("file: %p\n", file);
+
     printf("\n");
     
     // 파일 읽기

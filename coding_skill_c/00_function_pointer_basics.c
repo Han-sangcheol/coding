@@ -77,7 +77,7 @@ void Step1_Concept(void) {
     printf("\n[함수 주소]\n");
     printf("  HelloWorld 함수의 주소: %p\n", (void*)HelloWorld);
     printf("  Goodbye 함수의 주소: %p\n", (void*)Goodbye);
-    
+
     printf("\n💡 함수도 메모리 어딘가에 저장되어 있어요!\n");
     printf("   이 주소를 변수에 저장할 수 있다면?\n");
     printf("   → 바로 '함수 포인터'입니다!\n");

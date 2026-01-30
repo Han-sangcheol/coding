@@ -175,7 +175,7 @@ void Step3_Usage(void) {
     /* 1️⃣ 함수 정의 - 위에 이미 정의됨 (PrintSquare, PrintCube) */
     
     /* 2️⃣ 함수 포인터 선언 */
-    void (*operation)(int);
+    void (*operation)(int);    // 선언
     
     /* 3️⃣ 함수 주소 대입 */
     operation = PrintSquare;
@@ -377,6 +377,18 @@ void ProcessTask(int value, void (*callback)(int)) {
     }
 }
 
+/* 콜백을 받는 함수 */
+void ProcessTask2(int value, void (*callback)(int), void (*callback2)(int)) {
+    printf("    작업 처리 중... (값: %d)\n", value);
+    
+    // 작업 처리 시뮬레이션
+    if (value > 0) {
+        callback(value * 2);  // 성공 콜백
+    } else {
+        callback2(-1);  // 오류 콜백
+    }
+}
+
 /* 배열 정렬 예제 (qsort 스타일) */
 int CompareAsc(const void* a, const void* b) {
     return (*(int*)a - *(int*)b);
@@ -416,6 +428,8 @@ void Step6_Callback(void) {
     printf("[예제 1] 성공/실패 콜백\n");
     ProcessTask(10, OnSuccess);
     ProcessTask(-5, OnError);
+    ProcessTask2(10, OnSuccess, OnError);
+    ProcessTask2(-5, OnSuccess, OnError);
     
     /* 정렬 콜백 예제 */
     printf("\n[예제 2] 정렬 방식을 콜백으로 선택\n");
@@ -475,6 +489,7 @@ void Bird_Move(Animal* self) {
 /* 동물 생성 함수 */
 Animal CreateDog(const char* name) {
     Animal dog;
+    printf("CreateDog: %p\n", &dog);
     strcpy(dog.name, name);
     dog.speak = Dog_Speak;
     dog.move = Dog_Move;
@@ -483,11 +498,22 @@ Animal CreateDog(const char* name) {
 
 Animal CreateBird(const char* name) {
     Animal bird;
+    printf("CreateBird: %p\n", &bird);
     strcpy(bird.name, name);
     bird.speak = Bird_Speak;
     bird.move = Bird_Move;
     return bird;
 }
+
+// 작성해본. 
+// Animal CreateAnimal(Animal type, const char* name) {
+//     Animal animal;
+//     printf("CreateAnimal: %p\n", &animal);
+//     strcpy(animal.name, name);
+//     animal.speak = type == ANIMAL_DOG ? Dog_Speak : Bird_Speak;
+//     animal.move = type == ANIMAL_DOG ? Dog_Move : Bird_Move;
+//     return animal;
+// }
 
 void Step7_StructWithFP(void) {
     printf("\n");
@@ -498,7 +524,9 @@ void Step7_StructWithFP(void) {
     /* 동물 객체 생성 */
     Animal dog = CreateDog("바둑이");
     Animal bird = CreateBird("짹짹이");
-    
+    printf("dog: %p\n", &dog);
+    printf("bird: %p\n", &bird);
+
     /* 같은 인터페이스로 다른 동작! (다형성) */
     printf("[동물들의 행동]\n");
     
@@ -556,11 +584,62 @@ void Demo_Calculator(void) {
     
     for (int i = 0; i < table_size; i++) {
         printf("  %d %c %d = %d (%s)\n", 
-               a, calc_table[i].symbol, b,
+               a,
+               calc_table[i].symbol,
+               b,
                calc_table[i].func(a, b),
                calc_table[i].name);
     }
 }
+
+// 8-1-추가: 키 입력 받아 계산기 동작하기(만들어봄)
+//+, -, *, / 키가 있는 계산기가 있음, 숫자는 2개가 입력되어 있다고 할때 calc_table 을 이용하여 키입력시 처리되는 프로그램 만들기
+void Demo_Calculator_Key(void) {
+    printf("\n[실무 예제 1-2] 키 입력 계산기 (+, -, *, /)\n");
+
+    int a = 0, b = 0;
+    char op;
+    Calculator calc_table[] = {
+        { '+', Add, "덧셈" },
+        { '-', Subtract, "뺄셈" },
+        { '*', Multiply, "곱셈" },
+        { '/', Divide, "나눗셈" }
+    };
+    int table_size = sizeof(calc_table) / sizeof(calc_table[0]);
+    int found = 0;
+
+    printf("  첫 번째 숫자 입력: ");
+    scanf("%d", &a);
+    printf("  두 번째 숫자 입력: ");
+    scanf("%d", &b);
+
+    // 연산자 입력 및 검증
+    while (1) {
+        printf("  연산자 입력 (+, -, *, /): ");
+        // 앞의 숫자 입력 후 버퍼에 남은 개행 처리
+        do {
+            op = getchar();
+        } while (op == '\n' || op == ' ');
+
+        if (op == '+' || op == '-' || op == '*' || op == '/') {
+            break;
+        } else {
+            printf("  유효하지 않은 연산자입니다. 다시 입력해주세요.\n");
+            // 입력 버퍼에 쓰레기값 제거 (필요시)
+            //while (getchar() != '\n');
+        }
+    }
+
+    for (int i = 0; i < table_size; i++) {
+        if (calc_table[i].symbol == op) {
+            int result = calc_table[i].func(a, b);
+            printf("  결과: %d %c %d = %d (%s)\n", a, op, b, result, calc_table[i].name);
+            break;
+        }
+    }
+}
+
+
 
 /* 8-2. 명령 테이블 (임베디드 시스템) */
 typedef void (*CommandHandler)(int param);
@@ -748,6 +827,7 @@ int main(void) {
     printf("   3. 06_factory_pattern.c - 팩토리 패턴\n");
     printf("   4. 07_observer_pattern.c - 옵저버 패턴\n\n");
     
+    Demo_Calculator_Key();
     return 0;
 }
 

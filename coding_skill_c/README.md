@@ -113,6 +113,136 @@ run_all.bat
 
 ---
 
+## 🔗 패턴 간 상관관계 및 의존성
+
+### 📊 스킬 상관관계 다이어그램
+
+```
+                    [함수 포인터 기초 (00)]
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+        [Wrapper (01)]  [Callback (04)]  [Factory (06)]
+              │             │             │
+              ↓             ↓             ↓
+        [Adapter (02)]  [Observer (07)]  [Strategy (08)]
+              │             │             │
+              └─────────────┼─────────────┘
+                            ↓
+                    [State Machine (05)]
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+        [Event Queue (10)] [Command (09)] [HAL (26)]
+              │             │             │
+              ↓             ↓             ↓
+        [Ring Buffer (14)] [Memory Pool (11)] [Driver Interface (27)]
+              │             │             │
+              └─────────────┼─────────────┘
+                            ↓
+                [Interrupt Handler (28)]
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+        [Watchdog (23)]  [Failsafe (25)]  [Retry (24)]
+```
+
+### 🎯 패턴별 의존 관계
+
+| 패턴 | 선행 학습 필요 | 연관 패턴 |
+|------|--------------|----------|
+| **Wrapper (01)** | 함수 포인터 (00) | Adapter, HAL |
+| **Adapter (02)** | Wrapper (01) | HAL, Driver Interface |
+| **Singleton (03)** | 기초 C | Factory, Observer |
+| **Callback (04)** | 함수 포인터 (00) | Observer, Event Queue |
+| **State Machine (05)** | 함수 포인터, Callback | Command, Event Queue |
+| **Factory (06)** | Singleton (03) | Strategy, Observer |
+| **Observer (07)** | Callback (04), Singleton | Event Queue |
+| **Strategy (08)** | 함수 포인터 (00) | Factory, Command |
+| **Command (09)** | 함수 포인터 (00) | State Machine, Event Queue |
+| **Event Queue (10)** | Callback, Ring Buffer | Observer, Command |
+| **Memory Pool (11)** | 기초 메모리 관리 | Object Pool, Ring Buffer |
+| **Object Pool (12)** | Memory Pool (11) | Factory |
+| **Ring Buffer (14)** | 기초 배열 | Event Queue, Double Buffer |
+| **HAL (26)** | Wrapper, Adapter | Driver Interface |
+| **Interrupt Handler (28)** | Callback, Ring Buffer | Watchdog, Event Queue |
+
+### 📈 학습 추천 순서 (의존성 고려)
+
+#### 레벨 1: 기초 (선행 학습 없음)
+```
+00 → 01 → 03 → 15
+함수   Wrapper  Singleton  Linked List
+포인터
+```
+
+#### 레벨 2: 초급 (레벨 1 필요)
+```
+04 → 06 → 02 → 14
+Callback  Factory  Adapter  Ring Buffer
+```
+
+#### 레벨 3: 중급 (레벨 2 필요)
+```
+05 → 07 → 10 → 11
+State    Observer  Event   Memory
+Machine            Queue   Pool
+```
+
+#### 레벨 4: 중급+ (레벨 3 필요)
+```
+08 → 09 → 16 → 12
+Strategy  Command  Double   Object
+                   Buffer   Pool
+```
+
+#### 레벨 5: 고급 (레벨 4 필요)
+```
+26 → 27 → 28
+HAL  Driver    Interrupt
+     Interface Handler
+```
+
+#### 레벨 6: 안전성/최적화 (레벨 5 필요)
+```
+23 → 24 → 25 → 22 → 21
+Watchdog  Retry  Failsafe  Zero-Copy  Cache
+```
+
+#### 레벨 7: 테스트/디버깅 (모든 레벨)
+```
+29 → 30 → 31
+Mock  Assertion  Tracing
+```
+
+### 🔄 학습 경로 추천
+
+#### 경로 A: 임베디드 펌웨어 개발자
+```
+00 → 01 → 04 → 05 → 14 → 11 → 26 → 28 → 23 → 25
+기초  추상화  비동기  상태   버퍼  메모리  HAL  ISR  안전성
+```
+
+#### 경로 B: 센서/IoT 개발자
+```
+00 → 01 → 02 → 04 → 06 → 07 → 10 → 14 → 24
+기초  추상화  변환  이벤트  생성  관찰  큐  버퍼  재시도
+```
+
+#### 경로 C: RTOS 응용 개발자
+```
+00 → 04 → 05 → 10 → 11 → 14 → 18 → 19 → 23
+기초  콜백  상태  큐  메모리  버퍼  세마  뮤텍스  감시
+```
+
+#### 경로 D: 드라이버 개발자
+```
+00 → 01 → 02 → 26 → 27 → 28 → 14 → 16 → 22
+기초  래퍼  어댑터  HAL  인터페이스  ISR  버퍼  DMA  최적화
+```
+
+---
+
 ## 🎯 학습 로드맵
 
 ### 🔰 1단계: 기본기 (필수, 1-2주)

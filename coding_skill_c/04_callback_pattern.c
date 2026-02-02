@@ -157,13 +157,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdint.h>
+#include <windows.h>  // Sleep 함수 사용
+
+/* ============================================================================
+ * 전역 변수 - 프로그램 시작 시간
+ * ============================================================================ */
+static ULONGLONG program_start_time = 0;  // GetTickCount64() 사용
 
 /* ============================================================================
  * 1. 버튼 이벤트 Callback - GPIO 인터럽트 시뮬레이션
  * ============================================================================ */
 
 // 버튼 이벤트 타입
-typedef enum {
+typedef enum ButtonEvent{
     BUTTON_PRESSED,
     BUTTON_RELEASED,
     BUTTON_LONG_PRESS
@@ -173,7 +180,7 @@ typedef enum {
 typedef void (*ButtonCallback)(ButtonEvent event);
 
 // 버튼 핸들러 구조체
-typedef struct {
+typedef struct ButtonHandler{
     int pin_number;
     ButtonCallback callback;
     int is_pressed;
@@ -207,6 +214,7 @@ void Button_SimulateEvent(ButtonHandler* handler, ButtonEvent event) {
     
     // Callback 호출
     if (handler->callback != NULL) {
+        printf("여기서 콜백 호출\n");
         handler->callback(event);
     }
 }
@@ -225,7 +233,37 @@ typedef struct {
     TimerCallback callback;
     void* user_data;
     int tick_count;
+    HANDLE thread_handle;   // 타이머 스레드 핸들
+    volatile int is_running; // 타이머 실행 상태
 } Timer;
+
+// 타이머 스레드 함수 (주기적으로 콜백 호출)
+DWORD WINAPI Timer_ThreadFunc(LPVOID param) {
+    Timer* timer = (Timer*)param;
+    
+    while (timer->is_running) {
+        // 설정된 주기만큼 대기
+        Sleep(timer->interval_ms);
+        
+        if (!timer->is_running) break;
+        
+        // 틱 카운터 증가
+        timer->tick_count++;
+        
+        /* 타이머 틱 시간 출력 (밀리초 단위) */
+        ULONGLONG current_time = GetTickCount64();
+        ULONGLONG elapsed_ms = current_time - program_start_time;
+        printf("[Timer] Tick %d (프로그램 시작부터: %llu ms)\n", 
+               timer->tick_count, elapsed_ms);
+        
+        // Callback 호출
+        if (timer->callback != NULL) {
+            timer->callback(timer->user_data);
+        }
+    }
+    
+    return 0;
+}
 
 // 타이머 초기화
 void Timer_Init(Timer* timer, int id, int interval, 
@@ -235,17 +273,54 @@ void Timer_Init(Timer* timer, int id, int interval,
     timer->callback = cb;
     timer->user_data = data;
     timer->tick_count = 0;
+    timer->thread_handle = NULL;
+    timer->is_running = 0;
     printf("[Timer] 타이머 %d 초기화 (주기: %dms)\n", id, interval);
 }
 
-// 타이머 틱 (주기적으로 호출됨)
-void Timer_Tick(Timer* timer) {
-    timer->tick_count++;
-    
-    // Callback 호출
-    if (timer->callback != NULL) {
-        timer->callback(timer->user_data);
+// 타이머 시작 (별도 스레드에서 주기적으로 콜백 호출)
+void Timer_Start(Timer* timer) {
+    if (timer->is_running) {
+        printf("[Timer] 타이머 %d 이미 실행 중\n", timer->timer_id);
+        return;
     }
+    
+    timer->is_running = 1;
+    timer->thread_handle = CreateThread(
+        NULL,                   // 기본 보안 속성
+        0,                      // 기본 스택 크기
+        Timer_ThreadFunc,       // 스레드 함수
+        timer,                  // 스레드 파라미터
+        0,                      // 즉시 실행
+        NULL                    // 스레드 ID 불필요
+    );
+    
+    if (timer->thread_handle == NULL) {
+        printf("[Timer] 타이머 %d 시작 실패\n", timer->timer_id);
+        timer->is_running = 0;
+    } else {
+        printf("[Timer] 타이머 %d 시작\n", timer->timer_id);
+    }
+}
+
+// 타이머 중지
+void Timer_Stop(Timer* timer) {
+    if (!timer->is_running) {
+        return;
+    }
+    
+    printf("[Timer] 타이머 %d 중지 요청\n", timer->timer_id);
+    timer->is_running = 0;
+    
+    // 스레드 종료 대기
+    if (timer->thread_handle != NULL) {
+        WaitForSingleObject(timer->thread_handle, INFINITE);
+        CloseHandle(timer->thread_handle);
+        timer->thread_handle = NULL;
+    }
+    
+    printf("[Timer] 타이머 %d 중지됨 (총 %d 틱)\n", 
+           timer->timer_id, timer->tick_count);
 }
 
 /* ============================================================================
@@ -443,6 +518,9 @@ void OnButton_SendNotification(ButtonEvent event) {
  * ============================================================================ */
 
 int main(void) {
+    // 프로그램 시작 시간 기록 (밀리초 단위)
+    program_start_time = GetTickCount64();
+    
     srand((unsigned int)time(NULL));
     
     printf("========================================\n");
@@ -463,12 +541,17 @@ int main(void) {
     printf("=== 2. 타이머 Callback ===\n");
     int timer_counter = 0;
     Timer timer;
-    Timer_Init(&timer, 1, 100, OnTimerExpired, &timer_counter);
+    uint32_t interval_ms = 100;
+    Timer_Init(&timer, 1, interval_ms, OnTimerExpired, &timer_counter);
     
-    for (int i = 0; i < 5; i++) {
-        printf("[Timer] Tick %d\n", i + 1);
-        Timer_Tick(&timer);
-    }
+    // 타이머 시작 (별도 스레드에서 주기적으로 콜백 호출)
+    Timer_Start(&timer);
+    
+    // 5초 동안 대기 (타이머가 자동으로 5번 실행됨)
+    Sleep(interval_ms * (5+1));  // 5번 실행 + 1번 대기
+    
+    // 타이머 중지
+    Timer_Stop(&timer);
     printf("\n");
     
     // 3. UART 수신 Callback

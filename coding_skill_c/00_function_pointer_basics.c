@@ -659,7 +659,7 @@ void CMD_Stop(int param) {
 typedef struct Command {
     int command_id;
     CommandHandler handler;
-    const char* description;
+    const char* description;        // 설명(사용안함)
 } Command;
 
 void Demo_CommandTable(void) {
@@ -668,7 +668,7 @@ void Demo_CommandTable(void) {
     Command cmd_table[] = {
         { 0x01, CMD_Reset, "시스템 리셋" },
         { 0x02, CMD_Start, "시스템 시작" },
-        { 0x03, CMD_Stop, "시스템 정지" }
+        { 0x03, CMD_Stop, "시스템 정지" }   
     };
     
     int table_size = sizeof(cmd_table) / sizeof(cmd_table[0]);
@@ -691,43 +691,51 @@ void Demo_CommandTable(void) {
 }
 
 /* 8-3. 간단한 상태 머신 */
+// 상태 정의: 시스템이 가질 수 있는 모든 상태
 typedef enum {
-    STATE_IDLE,
-    STATE_RUNNING,
-    STATE_STOPPED
+    STATE_IDLE,     // 0: 대기 상태
+    STATE_RUNNING,  // 1: 실행 상태
+    STATE_STOPPED   // 2: 정지 상태
 } State;
 
-typedef State (*StateFunc)(void);
+// 상태 핸들러 함수 포인터 타입: 현재 상태를 처리하고 다음 상태를 반환
+typedef State (*StateHandler)(void);
 
-State State_Idle(void) {
+// 상태 핸들러: IDLE(대기) 상태 처리
+State StateHandler_Idle(void) {
     printf("    [IDLE] 대기 중...\n");
-    return STATE_RUNNING;
+    return STATE_RUNNING;  // 다음 상태로 전환
 }
 
-State State_Running(void) {
+// 상태 핸들러: RUNNING(실행) 상태 처리
+State StateHandler_Running(void) {
     printf("    [RUNNING] 실행 중...\n");
-    return STATE_STOPPED;
+    return STATE_STOPPED;  // 다음 상태로 전환
 }
 
-State State_Stopped(void) {
+// 상태 핸들러: STOPPED(정지) 상태 처리
+State StateHandler_Stopped(void) {
     printf("    [STOPPED] 정지됨\n");
-    return STATE_IDLE;
+    return STATE_IDLE;  // 다음 상태로 전환
 }
 
 void Demo_StateMachine(void) {
     printf("\n[실무 예제 3] 상태 머신\n");
     
-    StateFunc state_table[] = {
-        State_Idle,
-        State_Running,
-        State_Stopped
+    // 상태 핸들러 테이블: 각 상태에 대응하는 핸들러 함수 매핑
+    // state_handler_table[STATE_IDLE] -> StateHandler_Idle 함수 호출
+    StateHandler state_handler_table[] = {
+        StateHandler_Idle,      // [0] STATE_IDLE 핸들러
+        StateHandler_Running,   // [1] STATE_RUNNING 핸들러
+        StateHandler_Stopped    // [2] STATE_STOPPED 핸들러
     };
     
-    State current = STATE_IDLE;
+    State current_state = STATE_IDLE;  // 초기 상태
     
     for (int i = 0; i < 6; i++) {
         printf("  Step %d:\n", i + 1);
-        current = state_table[current]();
+        // 현재 상태의 핸들러를 실행하고, 반환된 값을 다음 상태로 설정
+        current_state = state_handler_table[current_state]();
         printf("\n");
     }
 }
@@ -770,9 +778,11 @@ void Step9_Interview(void) {
     printf("    5) C에서 다형성 구현\n\n");
     
     printf("Q3: void (*fp)(int)와 void *fp(int)의 차이는?\n");
-    printf("A3: void (*fp)(int)  → 함수 포인터 (int를 받아 void 반환하는 함수)\n");
-    printf("    void *fp(int)    → 함수 (int를 받아 void*를 반환)\n");
-    printf("    괄호 위치가 중요합니다!\n\n");
+    printf("A3: void (*fp)(int)  → 함수 포인터 (int를 받아 void 반환)\n");
+    printf("                         반환값 없음, 함수의 주소를 저장하는 포인터\n");
+    printf("    void *fp(int)    → 함수 선언 (int를 받아 void* 반환)\n");
+    printf("                         void 포인터를 반환하는 일반 함수\n");
+    printf("    ⚠️ void와 void*는 완전히 다릅니다! 괄호 위치가 중요!\n\n");
     
     printf("Q4: typedef를 사용하는 이유는?\n");
     printf("A4: 함수 포인터 문법이 복잡해서 typedef로 타입 별칭을 만들면\n");
@@ -1000,6 +1010,183 @@ int main(void) {
  * - 더 유연하며
  * - 업계 표준이며
  * - 디버깅하기 쉽습니다
+ * 
+ * ============================================================================
+ * 
+ * ============================================================================
+ * 📖 enum typedef 작성 방법 비교
+ * ============================================================================
+ * 
+ * enum(열거형)도 구조체처럼 typedef와 함께 사용할 때 네이밍 규칙이 있습니다.
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 방법 1: enum 태그 없이 (일반적이지만 제한적)                             │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * typedef enum {
+ *     STATE_IDLE,
+ *     STATE_RUNNING,
+ *     STATE_STOPPED
+ * } State;
+ * 
+ * 사용:
+ *   State current = STATE_IDLE;  // typedef 이름 사용
+ * 
+ * 문제점:
+ * 1. 전방 선언 불가능
+ *    enum State;  // ❌ 에러! enum 태그가 없음
+ * 
+ * 2. 디버깅 시 타입 이름 명확하지 않음
+ *    - GDB/LLDB에서 enum 타입 조회 어려움
+ * 
+ * 3. C++과의 호환성 제한
+ *    - C++은 enum State 형태를 선호
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 방법 2: enum 태그 명시 (권장)                                            │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * typedef enum State {
+ *     STATE_IDLE,
+ *     STATE_RUNNING,
+ *     STATE_STOPPED
+ * } State;
+ * 
+ * 사용:
+ *   State current = STATE_IDLE;        // typedef 이름 사용 (간단)
+ *   enum State current = STATE_IDLE;   // enum 태그 사용 (명시적)
+ * 
+ * 장점:
+ * 1. ✅ 전방 선언 가능
+ *    enum State;              // 전방 선언
+ *    State GetState(void);    // 함수 선언
+ * 
+ * 2. ✅ 디버깅 편의성
+ *    - GDB: ptype enum State
+ *    - LLDB: type lookup State
+ *    - 두 방식 모두 타입 정보 확인 가능
+ * 
+ * 3. ✅ 코드 가독성 향상
+ *    - enum 이름이 명확히 보임
+ *    - 다른 프로그래머가 이해하기 쉬움
+ * 
+ * 4. ✅ C/C++ 호환성
+ *    - C++에서도 동일하게 사용 가능
+ *    - enum class와 구분 명확
+ * 
+ * 5. ✅ 스위치문에서 타입 체크
+ *    State current = STATE_IDLE;
+ *    switch (current) {
+ *        case STATE_IDLE: break;
+ *        case STATE_RUNNING: break;
+ *        case STATE_STOPPED: break;
+ *    }
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ enum 네이밍 컨벤션                                                       │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * 1. enum 타입 이름
+ *    - PascalCase (일반적): State, CommandType, ErrorCode
+ *    - _t 접미사 (Linux 스타일): state_t, command_type_t
+ *    - E 접두사 (Hungarian): EState, ECommandType
+ * 
+ * 2. enum 상수 이름
+ *    - 대문자 + 언더스코어 (가장 일반적)
+ *    - 타입 이름을 접두사로 사용하여 충돌 방지
+ * 
+ *    typedef enum State {
+ *        STATE_IDLE,        // STATE_ 접두사
+ *        STATE_RUNNING,
+ *        STATE_STOPPED
+ *    } State;
+ * 
+ *    typedef enum Color {
+ *        COLOR_RED,         // COLOR_ 접두사
+ *        COLOR_GREEN,
+ *        COLOR_BLUE
+ *    } Color;
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 실전 예제 비교                                                           │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * // ❌ 태그 없음 - 전방 선언 불가
+ * typedef enum {
+ *     CMD_START,
+ *     CMD_STOP
+ * } CommandType;
+ * 
+ * // ✅ 태그 있음 - 전방 선언 가능
+ * typedef enum CommandType {
+ *     CMD_START,
+ *     CMD_STOP
+ * } CommandType;
+ * 
+ * // 헤더 파일에서
+ * enum CommandType;  // 전방 선언 가능
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 업계 표준 및 코딩 컨벤션                                                 │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * 1. Linux Kernel Style Guide
+ *    - enum 태그 명시 권장
+ *    - 소문자 + 언더스코어 (enum state_type)
+ * 
+ * 2. MISRA-C 2012 규칙
+ *    - Rule 8.12: enum 태그 명시 권장
+ *    - 타입 안전성 강화
+ * 
+ * 3. NASA JPL C Coding Standard
+ *    - 모든 enum은 태그 명시
+ *    - typedef와 태그 이름 동일하게 유지
+ * 
+ * 4. Google C++ Style Guide
+ *    - enum 태그 명시 (C 호환성)
+ *    - enum class 사용 권장 (C++11 이상)
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ struct, enum, union 통일된 패턴                                          │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * 일관성을 위해 struct, enum, union 모두 동일한 패턴 사용:
+ * 
+ * // 구조체
+ * typedef struct StructName {
+ *     // 멤버들...
+ * } StructName;
+ * 
+ * // 열거형
+ * typedef enum EnumName {
+ *     VALUE1,
+ *     VALUE2
+ * } EnumName;
+ * 
+ * // 공용체
+ * typedef union UnionName {
+ *     int i;
+ *     float f;
+ * } UnionName;
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ 결론                                                                     │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * enum도 struct와 마찬가지로 다음 형식을 사용하세요:
+ * 
+ * typedef enum EnumName {
+ *     CONSTANT1,
+ *     CONSTANT2,
+ *     CONSTANT3
+ * } EnumName;
+ * 
+ * 이것은:
+ * - 더 안전하고
+ * - 더 유연하며
+ * - 업계 표준이며
+ * - 디버깅하기 쉽고
+ * - 전방 선언 가능합니다
  * 
  * ============================================================================
  */

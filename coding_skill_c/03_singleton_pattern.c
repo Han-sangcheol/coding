@@ -71,17 +71,33 @@
  *        return &instance;
  *    }
  * 
- * 방법 2: Static 변수 + 초기화 플래그
+ * 방법 2: Static 변수 + 초기화 플래그 (구조체 내부)
  * 
- *    static Config instance;
- *    static int initialized = 0;
+ *    typedef struct {
+ *        int initialized;  // 구조체가 스스로 초기화 여부 관리
+ *        int value;
+ *    } Config;
+ * 
+ *    static Config instance = {0};  // 모든 멤버 0 초기화
  * 
  *    Config* GetConfig(void) {
- *        if (!initialized) {
+ *        if (!instance.initialized) {
  *            InitConfig(&instance);
- *            initialized = 1;
+ *            instance.initialized = 1;
  *        }
  *        return &instance;
+ *    }
+ * 
+ * 방법 3: 포인터 방식 (진짜 Lazy Initialization)
+ * 
+ *    static Config* instance = NULL;
+ * 
+ *    Config* GetConfig(void) {
+ *        if (instance == NULL) {
+ *            instance = malloc(sizeof(Config));
+ *            InitConfig(instance);
+ *        }
+ *        return instance;
  *    }
  * 
  * ============================================================================
@@ -117,16 +133,22 @@
  * 
  * 멀티태스크 환경에서는 동기화 필수:
  * 
- *    static Config instance;
- *    static int initialized = 0;
+ *    typedef struct {
+ *        int initialized;
+ *        // ... 기타 멤버
+ *    } Config;
+ * 
+ *    static Config instance = {0};
  *    static osMutexId_t config_mutex;
  * 
  *    Config* GetConfig(void) {
  *        osMutexAcquire(config_mutex, osWaitForever);
- *        if (!initialized) {
+ *        
+ *        if (!instance.initialized) {
  *            InitConfig(&instance);
- *            initialized = 1;
+ *            instance.initialized = 1;
  *        }
+ *        
  *        osMutexRelease(config_mutex);
  *        return &instance;
  *    }
@@ -179,6 +201,7 @@ typedef enum {
 
 // Logger 구조체
 typedef struct {
+    int initialized;           // 초기화 여부 (구조체 내부에서 관리)
     LogLevel min_level;        // 최소 로그 레벨
     int log_count;             // 로그 카운터
     FILE* log_file;            // 로그 파일 포인터
@@ -187,19 +210,13 @@ typedef struct {
 } Logger;
 
 // Logger Singleton 인스턴스 (static으로 숨김)
-static Logger logger_instance = {
-    .min_level = LOG_LEVEL_INFO,
-    .log_count = 0,
-    .log_file = NULL,
-    .console_output = 1
-};
-
-// Logger 초기화 플래그
-static int logger_initialized = 0;
+// 모든 멤버가 0으로 초기화됨 (initialized = 0, log_file = NULL 등)
+static Logger logger_instance = {0};
 
 // Logger 초기화 함수
 int Logger_Init(const char* filename, LogLevel min_level) {
-    if (logger_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (logger_instance.initialized) {
         printf("[Logger] 이미 초기화되었습니다.\n");
         return 0;  // 이미 초기화됨
     }
@@ -218,14 +235,15 @@ int Logger_Init(const char* filename, LogLevel min_level) {
         printf("[Logger] 로그 파일 초기화 성공: %s\n", filename);
     }
     
-    logger_initialized = 1;
+    logger_instance.initialized = 1;  // 구조체 내부 플래그 설정
     printf("[Logger] Singleton 초기화 완료\n");
     return 0;
 }
 
 // Logger 인스턴스 가져오기 (Singleton 접근자)
 Logger* Logger_GetInstance(void) {
-    if (!logger_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (!logger_instance.initialized) {
         Logger_Init(NULL, LOG_LEVEL_INFO);  // 기본 설정으로 초기화
     }
     return &logger_instance;
@@ -300,7 +318,7 @@ void Logger_Shutdown(void) {
     }
     
     printf("[Logger] 총 로그 수: %d\n", logger->log_count);
-    logger_initialized = 0;
+    logger->initialized = 0;  // 구조체 내부 플래그 초기화
 }
 
 /* ============================================================================
@@ -319,18 +337,19 @@ typedef struct {
 
 // Config Manager 구조체
 typedef struct {
+    int initialized;           // 초기화 여부 (구조체 내부에서 관리)
     Config config;
     int is_loaded;
     char config_file[256];
 } ConfigManager;
 
-// ConfigManager Singleton 인스턴스
-static ConfigManager config_manager_instance;
-static int config_manager_initialized = 0;
+// ConfigManager Singleton 인스턴스 (모든 멤버 0으로 초기화)
+static ConfigManager config_manager_instance = {0};
 
 // ConfigManager 초기화
 int ConfigManager_Init(void) {
-    if (config_manager_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (config_manager_instance.initialized) {
         printf("[ConfigManager] 이미 초기화되었습니다.\n");
         return 0;
     }
@@ -344,8 +363,8 @@ int ConfigManager_Init(void) {
     config_manager_instance.config.threshold_value = 25.5f;
     
     config_manager_instance.is_loaded = 1;
+    config_manager_instance.initialized = 1;  // 구조체 내부 플래그 설정
     
-    config_manager_initialized = 1;
     printf("[ConfigManager] Singleton 초기화 완료\n");
     
     return 0;
@@ -353,7 +372,8 @@ int ConfigManager_Init(void) {
 
 // ConfigManager 인스턴스 가져오기
 ConfigManager* ConfigManager_GetInstance(void) {
-    if (!config_manager_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (!config_manager_instance.initialized) {
         ConfigManager_Init();
     }
     return &config_manager_instance;
@@ -408,17 +428,18 @@ typedef struct {
 
 // SystemMonitor 구조체
 typedef struct {
+    int initialized;           // 초기화 여부 (구조체 내부에서 관리)
     SystemStatus status;
     int monitoring_enabled;
 } SystemMonitor;
 
-// SystemMonitor Singleton 인스턴스
-static SystemMonitor system_monitor_instance;
-static int system_monitor_initialized = 0;
+// SystemMonitor Singleton 인스턴스 (모든 멤버 0으로 초기화)
+static SystemMonitor system_monitor_instance = {0};
 
 // SystemMonitor 초기화
 int SystemMonitor_Init(void) {
-    if (system_monitor_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (system_monitor_instance.initialized) {
         printf("[SystemMonitor] 이미 초기화되었습니다.\n");
         return 0;
     }
@@ -430,8 +451,8 @@ int SystemMonitor_Init(void) {
     system_monitor_instance.status.error_count = 0;
     system_monitor_instance.status.last_update = time(NULL);
     system_monitor_instance.monitoring_enabled = 1;
+    system_monitor_instance.initialized = 1;  // 구조체 내부 플래그 설정
     
-    system_monitor_initialized = 1;
     printf("[SystemMonitor] Singleton 초기화 완료\n");
     
     return 0;
@@ -439,7 +460,8 @@ int SystemMonitor_Init(void) {
 
 // SystemMonitor 인스턴스 가져오기
 SystemMonitor* SystemMonitor_GetInstance(void) {
-    if (!system_monitor_initialized) {
+    // 구조체 내부 플래그로 초기화 여부 확인
+    if (!system_monitor_instance.initialized) {
         SystemMonitor_Init();
     }
     return &system_monitor_instance;
@@ -660,20 +682,25 @@ int main(void) {
  *    #include "FreeRTOS.h"
  *    #include "semphr.h"
  * 
- *    static Logger logger_instance;
- *    static int logger_initialized = 0;
+ *    typedef struct {
+ *        int initialized;
+ *        // ... 기타 멤버
+ *    } Logger;
+ * 
+ *    static Logger logger_instance = {0};
  *    static SemaphoreHandle_t logger_mutex = NULL;
  * 
  *    Logger* Logger_GetInstance(void) {
+ *        // Mutex 생성 (한 번만)
  *        if (logger_mutex == NULL) {
  *            logger_mutex = xSemaphoreCreateMutex();
  *        }
  *        
  *        xSemaphoreTake(logger_mutex, portMAX_DELAY);
  *        
- *        if (!logger_initialized) {
+ *        if (!logger_instance.initialized) {
  *            Logger_Init_Internal(&logger_instance);
- *            logger_initialized = 1;
+ *            logger_instance.initialized = 1;
  *        }
  *        
  *        xSemaphoreGive(logger_mutex);
@@ -748,10 +775,15 @@ int main(void) {
  * ============================================================================
  * 
  * 1. static 변수로 단일 인스턴스 보장
- * 2. 초기화 플래그로 중복 초기화 방지
+ * 2. 구조체 내부 initialized 플래그로 초기화 관리 (더 깔끔한 구조)
  * 3. getter 함수로 전역 접근 제공
  * 4. 실무에서 자주 사용하는 3가지 Singleton (Logger, Config, Monitor)
  * 5. 포인터 비교로 인스턴스 동일성 확인
+ * 
+ * 💡 개선 포인트:
+ *    - 별도의 전역 초기화 플래그 대신 구조체 내부에 포함
+ *    - 초기화 상태가 구조체와 함께 관리되어 더 일관성 있음
+ *    - 여러 Singleton이 있어도 각자의 상태를 독립적으로 관리
  * 
  * ============================================================================
  * 다음 학습 단계 추천
